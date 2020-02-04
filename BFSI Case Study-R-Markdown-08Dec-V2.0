@@ -1,0 +1,752 @@
+---
+title: "DM Group Assignment: Thera Bank - Loan Purchase Modelling"
+author: "By- Anup Chougule, Rohit Raj Singh, Venkatesh Taduvayi"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem Statement
+This case is about a bank (Thera Bank) which has a growing customer base. Majority of these customers are liability customers (depositors) with varying size of deposits. The number of customers who are also borrowers (asset customers) is quite small, and the bank is interested in expanding this base rapidly to bring in more loan business and in the process, earn more through the interest on loans. In particular, the management wants to explore ways of converting its liability customers to personal loan customers (while retaining them as depositors). A campaign that the bank ran last year for liability customers showed a healthy conversion rate of over 9% success. This has encouraged the retail marketing department to devise campaigns with better target marketing to increase the success ratio with a minimal budget. The department wants to build a model that will help them identify the potential customers who have a higher probability of purchasing the loan. This will increase the success ratio while at the same time reduce the cost of the campaign. The dataset has data on 5000 customers. The data include customer demographic information (age, income, etc.), the customer&#39;s relationship with the bank (mortgage, securities account, etc.), and the customer response to the last personal loan campaign (Personal Loan). Among these 5000 customers, only 480 (= 9.6%) accepted the personal loan that was offered to them in the earlier campaign
+
+You are brought in as a consultant and your job is to build the best model which can classify the right customers who have a higher probability of purchasing the loan. You are expected to do the following:
+1. EDA of the data available. Showcase the results using appropriate graphs
+2. Apply appropriate clustering on the data and interpret the output
+3. Build appropriate models on both the test and train data (CART, Random Forest). Interpret all the model outputs and do the necessary modifications wherever eligible (such as pruning)
+4. Check the performance of all the models that you have built (test and train). Use all the model performance measures you have learned so far. Share your remarks on which model performs the best.
+The solution should be a report with proper explanation, R code, interpretation & Conclusion.
+
+#### Load Loan Purchase Data
+```{r}
+LoanP.data = read.csv("C:/BABI/Module5-DataMining/Group-Assignment/Thera Bank-Data Set.csv", header = TRUE)
+```
+
+#### Section 1 - a. Basic data summary, Univariate, Bivariate analysis, graphs
+####  Data Summary - Str, Summary, Unique Values
+```{r}
+str(LoanP.data)
+sum(complete.cases(LoanP.data))/5000
+apply(LoanP.data, 2, function(x) length(unique(x)))
+summary(LoanP.data)
+```
+Insights:
+Data sample has 5000 observations and 14 variables.
+
+The 14 attributes are divided as below -
+ID - Customer Identification does not add any interesting info. No association with loan, also it does not provide any conclusion for future potential loan customers. This can be ignored for Model prediction.
+
+The binary category have five variables - Personal Loan (Target Variable), Securities Account,CD Account, Online,Credit Card 
+
+Interval variables - Age, Experience, Income, CCAvg, Mortage
+
+Ordinal Categorical Variables - Family  and Education 
+
+The nominal variable - ID and Zip Code
+
+All attrobutes are captured as either Integer or Numeric
+
+Sample dataset has 99% observations has all values. Good population to go-ahead with Modelling
+
+Among these 5000 customers, only 480 (= 9.6%) accepted the personal loan that was offered to them in the earlier campaign
+
+Count of Unique values for each column in Sample Dataset as below:-
+ID - 5000 , Age..in.years - 45, Experience..in.years  - 47 , Income..in.K.month.  - 162 ,ZIP.Code  - 467 ,Family.members - 5, CCAvg - 108, Education  3, Mortgage - 347, Personal.Loan - 2 , Securities.Account - 2, CD.Account  - 2, Online  - 2, CreditCard -2 
+
+Summary
+
+ID - Running sequence number starting from 1 and ending at 5000 with a Mean of 2500.
+
+Age..in.years. - Range from minimum age of 23 and maximum of 67 years.Age is normally distributed with majority of customers falling between 30 years and 60 years of age i.e. Summary shows mean is almost equal to median
+
+Experience..in.years - Experience is normally distributed with more customer having experience starting from 8 years. Here the mean is equal to median. There are negative values in the Experience. This could be a data input error as in general it is not possible to measure negative years of experience. We have two options either delete them or mark them as Zeros. We will go with second option of converting them to zeros.
+
+Income..in.K.month. - Income is positively skewed. Majority of the customers have income between 45K and 55K. Summary shows mean is greater than the median
+
+ZIP.Code - We have 457 unique Zip codes ranging from 9307 to max of 96651
+
+Family.members - Ranges from 1 to 4 with average of 2.39. We also have null values for 18 customers.We have two options either delete them or mark them as Zero. We will go with second option of converting them to zero.
+
+CCAvg  - CCAvg is positively skewed variable and average spending is between 0K to 10K and majority spends less than 2.5K. Average across customers stands at 1.93K.
+
+Education - Three levels with a mean of 1.83 i.e Majority of customers are atleast completed Graduation
+
+Mortgage - Mortgage 70% of the individuals have a mortgage of less than 40K. However the max value is 635K
+
+Personal.Loan  -  only 480 (= 9.6%) accepted the personal loan that was offered to them in the earlier campaign
+
+Securities.Account - 522 customer out of 5000 have securities account with the bank
+
+CD.Account     - 302 customers out of 5000 have CD account with the Bank
+
+Online -  Around 60% customers (2984 out of 5000) uses online banking facilities. 
+
+CreditCard   - Around 30% overall customers use credit card issues by the Bank
+
+#### Transformation - Few of the experience in years are Negative make them Zero. Also Family Members Null values to Zero
+```{r}
+library(psych)
+library(imputeTS)
+LoanP.data$Experience..in.years.= ifelse(LoanP.data$Experience..in.years. < 0, 0, LoanP.data$Experience..in.years.)
+LoanP.data =na_replace(LoanP.data,0)
+sum(complete.cases(LoanP.data))/5000
+LoanPcartrandom.data = LoanP.data
+```
+
+#### Univariate Analysis
+```{r}
+hist(LoanP.data$Family.members)
+```
+Observation - More then half of the customers either have 1 or 2 family Members
+
+```{r}
+hist(LoanP.data$Education)
+```
+Observation - Graph shows more or less equal distribution. Customer with Undergrad education are slightly higher
+
+```{r}
+hist(LoanP.data$Online)
+```
+Observation - Graph shows around 60% of customers use online Internet Banking facilities
+
+```{r}
+hist(LoanP.data$CreditCard)
+```
+Observation - Graph shows 70% of the customers does't use credit card issued by the bank
+
+```{r}
+hist(LoanP.data$Securities.Account)
+```
+Observation - Graph shows only 7% of the customers have securities account with the Bank
+
+```{r}
+hist(LoanP.data$CD.Account)
+```
+Observation - Graph shows only 3% of the customers have certificate of deposit (CD) account with the bank
+
+#### Bivariate Analysis
+1. Does Customers income/education affects personal loan outcome
+```{r}
+boxplot(LoanP.data$Income..in.K.month. ~ LoanP.data$Education+LoanP.data$Personal.Loan, data=LoanP.data, col=(c("lightblue","orange")), xlab="Education Level", ylab="Income in K" )
+
+```
+Observation : It seems the customers whose education level is 1 is having more income. However customers who has taken the personal loan have the same income levels
+
+2. Does Customers Mortgage/education affects personal loan outcome
+```{r}
+boxplot(LoanP.data$Mortgage ~ LoanP.data$Education+LoanP.data$Personal.Loan, data=LoanP.data, col=(c("lightblue","orange")), xlab="Education Level", ylab="Mortage in K" )
+
+```
+Observation : From the above chart it seems that customer who do not have personal loan and customer who has personal loan have high mortgage
+
+3. Securities Account Vs Personal Loan 
+```{r}
+library(ggplot2)
+df = data.frame(LoanP.data$Securities,LoanP.data$Personal.Loan)
+df$LoanP.data.Securities = as.factor(df$LoanP.data.Securities)
+df$LoanP.data.Personal.Loan = as.factor(df$LoanP.data.Personal.Loan)
+str(df)
+ggplot(df, aes(df$LoanP.data.Securities)) + geom_bar(aes(fill = df$LoanP.data.Personal.Loan), position = "dodge") + ylab("# of Customers") + xlab("Securities Account - (0-No, 1-Yes)") +labs(fill = "Personal Loan(0- No/1 - Yes)")
+```
+Observation : Majority of customers who does not have loan have securities account
+
+4. Family Members Vs Personal Loan 
+```{r}
+library(ggplot2)
+df = data.frame(LoanP.data$Family.members,LoanP.data$Personal.Loan)
+df$LoanP.data.Family.members = as.factor(df$LoanP.data.Family.members)
+df$LoanP.data.Personal.Loan = as.factor(df$LoanP.data.Personal.Loan)
+str(df)
+ggplot(df, aes(df$LoanP.data.Family.members)) + geom_bar(aes(fill = df$LoanP.data.Personal.Loan), position = "dodge") + ylab("# of Customers") + xlab("Family Members ") +labs(fill = "Personal Loan(0- No/1 - Yes)")
+```
+Observation: Family size does not have any impact in personal loan. But it seems families with size of 3 are more likely to take loan. When considering future campaign this might be good association.
+
+5. CD Account  Vs Personal Loan 
+```{r}
+library(ggplot2)
+df = data.frame(LoanP.data$CD.Account,LoanP.data$Personal.Loan)
+df$LoanP.data.CD.Account = as.factor(df$LoanP.data.CD.Account)
+df$LoanP.data.Personal.Loan = as.factor(df$LoanP.data.Personal.Loan)
+str(df)
+ggplot(df, aes(df$LoanP.data.CD.Account)) + geom_bar(aes(fill = df$LoanP.data.Personal.Loan), position = "dodge") + ylab("# of Customers") + xlab("CD Account- (0-No, 1-Yes) ") +labs(fill = "Personal Loan(0- No/1 - Yes)")
+```
+Observation: Customers who does not have CD account , does not have loan as well. This seems to be majority. But almost all customers who has CD account has loan as well
+d <- density(LoanP.data$CCAvg) # returns the density data 
+plot(d)
+
+6. CC Average Vs Personal Loan 
+```{r}
+
+ggplot(df, aes(LoanP.data$CCAvg)) + geom_bar(aes(fill = df$LoanP.data.Personal.Loan)) + ylab("# of Customers") + xlab("CC AvgD Account- (0-No, 1-Yes) ") +labs(fill = "Personal Loan(0- No/1 - Yes)")
+median(LoanP.data$CCAvg)
+median(LoanP.data$CCAvg[LoanP.data$Personal.Loan == 1])
+median(LoanP.data$CCAvg[LoanP.data$Personal.Loan == 0])
+```
+
+Observation: Customers opted for personal loan have a higher credit card average. Average credit card spending with a median of 3800 dollar indicates a higher probability of personal loan. Lower credit card spending with a median of 1400 dollars is less likely to take a loan. This could be useful information. (Median for all = 1.5K, Medain for Personal Cust = 3.8K and Medain for Non Personal Loan Cust = 1.4K)
+
+7. Age Vs Personal Loan 
+```{r}
+ggplot(LoanP.data, aes(LoanP.data$Age..in.years.)) + geom_bar(aes(fill = LoanP.data$Personal.Loan)) + ylab("# of Customers") + xlab("Age ") +labs(fill = "Personal Loan(0- No/1 - Yes)")
+```
+
+Observation: Customers with All Ages opted for Personal Loan
+
+8. Age Vs Experience  
+```{r}
+plot(LoanP.data$Age..in.years., LoanP.data$Experience..in.years.)
+library(ggplot2)
+ggplot() + geom_point(data = LoanP.data, aes(x =Experience..in.years. , y = Age..in.years., color = as.factor(LoanP.data$Education)))
+
+```
+Observation - Experience and age have a positive correlation. As experience increase age also increases. Also the colors show the education level. There is gap in the mid forties of age and also more people in the under graduate level
+
+
+9. Family Members Vs Income  
+```{r}
+
+df1 = data.frame(LoanP.data$Family.members, LoanP.data$Income..in.K.month., LoanP.data$Personal.Loan)
+
+str(df1)
+df1$LoanP.data.Family.members = as.factor(df1$LoanP.data.Family.members)
+
+boxplot(df1$LoanP.data.Income..in.K.month. ~ df1$LoanP.data.Family.members+ df1$LoanP.data.Personal.Loan, data=df1, col=(c("lightblue","orange")), xlab="Education Level", ylab="Mortage in K" )
+```
+Observation -
+Families with income less than 100K are less likely to take loan,than families with high income
+
+10. Coorelation Among all Variables  
+```{r}
+Loan.data1 = LoanP.data[,-c(1,5)]
+str(Loan.data1)
+corLoandata = cor(Loan.data1)
+round(corLoandata,2)
+library(corrplot)
+corrplot(corLoandata, method= "number", bg = "grey")
+```
+Observation -
+Income and CCAvg is moderately correlated. 
+Age and Experience is highly correlated
+Income and Personal Loan is mildly correlated
+
+11. Coorelation using ggpairs
+```{r}
+library("GGally")
+ggpairs(LoanP.data[-1])
+```
+
+#### Section 2 - a. Apply Clustering algorithm b. Clustering Output interpretation 
+
+1. Apply scaling to get all data elements in one range. Taking out ZIp code from scope as stated in last step.  
+```{r}
+LoanP.scaled = scale(LoanP.data[,-c(1,5)])
+head(LoanP.scaled, 10)
+sum(complete.cases(LoanP.scaled))/5000
+```
+
+2. Clustering Algorithms are broadly classified into two categories i.e. Hierarchical and Partitioning (No Hierarchical).
+
+Hierarchical clustering is characterized by a tree like structure and uses distance as a measure of (dis)similarity. Partitioning (Non Hierarchical) algorithms starts with a set of partitions as clusters and alliteratively refines the partitions to form stable clusters.
+
+We have two types in Hierarchical Clustering.
+Agglomerative (“Bottom-up”) Start with the points as individual clusters and, at each step, merge the closest pair of clusters.
+
+Divisive (“Top-down”) Start with one, all-inclusive cluster and, at each step, split a cluster until only singleton clusters of individual points remain. 
+
+Non hierarchical or portioning clustering is K Means.The major difference here is one needs to provide Number of Clusters as input at the beginning.
+
+We will try both Hierarchical (hclust) and Non Hierarchical (K Means)on Thea dataset and see results before we arrive at conclusion
+
+2.1 Try first with Alglomerative type i.e. Hierarchical Cluster Algorithm Without scaling
+```{r}
+d.loan <- dist(x=LoanP.data[,-c(1,5)], method = "euclidean") 
+clus1 <- hclust(d.loan, method = "ward.D2")
+plot(clus1, labels = as.character(LoanP.data[,1]))
+```
+Observation 
+Dendogram shows cluster groupings of 3 to 4. Based on the Business input one can draw a line and go with number of clusters.
+
+2.2 Apply Hierarchical Clustering Algorithm - Try with scaled data
+```{r}
+d.loanscale <- dist(x=LoanP.scaled, method = "euclidean") 
+clus2 <- hclust(d.loanscale, method = "ward.D2")
+plot(clus2, labels = as.character(LoanP.data[,1]))
+rect.hclust(clus2, k=4, border="red")
+```
+Observation
+Dendogram again shows cluster groping of 3 to 4. We will go with 4 clusters for this usecase
+
+
+Profiling the clusters with assumption of 4 clusters
+```{r}
+LoanP.data$hClusters <- cutree(clus2, k=4)
+aggr = aggregate(LoanP.data[,-c(1,5,15)],list(LoanP.data$hClusters),mean)
+hclus.profile = data.frame( Cluster=aggr[,1],
+                            Freq=as.vector(table(LoanP.data$hClusters)),
+                            aggr[,-1])
+print(hclus.profile)
+```
+
+Observation
+Cluster 1 - These are low income customers never opted for Personal Loan, with Age and Experience on the lower side, medium family size, have Mortgage and vary rarely using Bank's credit card. C Lose to 55% of customers falls into this category.
+
+Cluster 2 - These are medium income credit card use customers never opted for Personal Loan and never opted for securities account 
+
+Cluster 3 - These are very high income customers with a very high Mortgage and some population opted for personal Loan and have high credit card spending
+
+Cluster 4 - These are high income high mortgage customers with high population of opting for personal loan and a heavy use of Internet banking usage
+
+
+2.2 Now Let's try with Kmeans Clustering Algorithm
+
+wssplot and nbclust used to identify potential clusters.
+```{r}
+wssplot <- function(data,nc){
+  wss <- (nrow(data)-1)*sum(apply(data,2,var))
+  for (i in 2:nc) {
+    wss[i] <- sum(kmeans(data,centers=i)$withinss)}
+  plot(1:nc,wss,type="b",xlab="Number of Clusters",
+       ylab="Within group sum of squares")}
+
+wssplot(LoanP.scaled,nc=5)
+```
+Observation
+Wssplot recommends 4 Clusters
+
+
+Let's Identifying the optimal number of clusters using nbclust
+```{r}
+library(NbClust)
+nc <- NbClust(LoanP.scaled, min.nc=2, max.nc=4, method="kmeans")
+table(nc$Best.n[1,])
+
+barplot(table(nc$Best.n[1,]),
+        xlab="Number of Clusters", ylab="Number of Criteria",
+        main="Number of Clusters Chosen by 23 Indices")
+```
+
+Observation
+nbclust recommended as below
+* Among all indices:                                                
+* 5 proposed 2 as the best number of clusters 
+* 6 proposed 3 as the best number of clusters 
+* 12 proposed 4 as the best number of clusters 
+**** Conclusion *****                
+* According to the majority rule, the best number of clusters is  4 
+nbclust recommended 4 clusters 
+
+Run Kmeans with "centers"  as number of clusters  
+```{r}
+kmeans.clus = kmeans(x=LoanP.scaled, centers = 4, nstart = 25)
+```
+
+Plot the clusters
+```{r}
+library(fpc)
+plotcluster(LoanP.scaled, kmeans.clus$cluster)
+
+# More complex
+library(cluster)
+clusplot(LoanP.scaled, kmeans.clus$cluster, 
+         color=TRUE, shade=TRUE, labels=2, lines=1)
+```
+
+profiling the clusters
+```{r}
+LoanP.data$kClusters <- kmeans.clus$cluster
+aggr = aggregate(LoanP.data[,-c(1,5, 15)],list(LoanP.data$kClusters),mean)
+kclus.profile <- data.frame( Cluster=aggr[,1],
+                            Freq=as.vector(table(LoanP.data$kClusters)),
+                            aggr[,-1])
+str(kclus.profile)
+print(kclus.profile)
+```
+
+Observation
+Again similar grouping what we got from Hierarchical clustering with minor changes.
+
+Cluster 1 - These are high income high mortgage customers with high population of opting for personal loan and a heavy use of Internet banking and credit card users. 5% of total customers are mapped to Cluster1
+
+Cluster 2 - These are very high income customers with a very high Mortgage and half of the population opted for personal Loan and have high credit card spending. 15% of total customers are mapped to Cluster2
+
+Cluster 3 - These are low income customers never opted for Personal Loan, with Age and Experience on the lower side, medium family size, have Mortgage and vary rarely using Bank's credit card. C Lose to 55% of customers falls into this category. Around 40% of total customers are mapped to Cluster3.
+
+Cluster 4 - These are medium income credit card use customers never opted for Personal Loan and never opted for securities account. Around 40% of total customers are mapped to Cluster3.
+
+While both Clustering Algorithms arrived at 4 Clusters, K means categorization is better. 
+
+#### Section 3/4 Applying CART technique 
+
+CART is a decision tree based model. 
+First split input dataset to Test Vs Train data using random technique
+```{r}
+smp_size = floor(0.75*nrow(LoanP.data))
+smp_size
+set.seed(123)
+train_ind = sample(seq_len(nrow(LoanPcartrandom.data)),size = smp_size) 
+LoanP.train = LoanPcartrandom.data[train_ind,]
+LoanP.test= LoanPcartrandom.data[-train_ind,]
+Loanrandom.train = LoanP.train
+Loanrandom.test = LoanP.test
+Loancv.train = LoanP.train
+Loancv.test = LoanP.test
+str(LoanP.test)
+str(LoanP.train)
+str(Loanrandom.train)
+str(Loanrandom.test)
+```
+Observations
+Train dataset created with 3750 observations
+Test Dataset created with 1250 observations
+Making same copy for Random forest tests. One for Random Forest and one for Random Forest Cross validation. This will help in comparison between CART and Random Forest Models.
+
+
+set the control parameter inputs for rpart, call rpart to build the tree and then plot the tree
+```{r}
+library(rpart)
+library(rpart.plot)
+r.ctrl = rpart.control(minsplit=100, minbucket = 10, cp = 0, xval = 10)
+m1 <- rpart(formula = LoanP.train$Personal.Loan ~ ., data =  LoanP.train[,-c(1,5)], method = "class", control = r.ctrl)
+m1
+rpart.plot(m1)
+```
+
+Find how the tree performs and derive cp value. The following table shall show CP values in the tree only if there is a significant jump in the error. Look at xerror which shows the error factor using cross validated dated (K times)
+
+```{r}
+printcp(m1)
+plotcp(m1)
+```
+
+Observation
+      CP nsplit rel error  xerror     xstd
+1 0.30650      0   1.00000 1.00000 0.050579
+2 0.14124      2   0.38701 0.38701 0.032455
+3 0.12147      3   0.24576 0.27401 0.027459
+4 0.00000      4   0.12429 0.12712 0.018836
+
+As X error reducing trend and ends at last observation we will take CO as 0.0000 Use this as cP value and prune the tree
+
+```{r}
+ptree<- prune(m1, cp= 0.0000 ,"CP")
+printcp(ptree)
+rpart.plot(ptree)
+
+```
+
+Add Predict class and score attribute to Train dataset
+```{r}
+## Scoring syntax
+LoanP.train$predict.class <- predict(ptree, LoanP.train, type="class")
+LoanP.train$predict.score <- predict(ptree, LoanP.train)
+
+head(LoanP.train)
+```
+Observation
+Higher the predict score mapping is classified to class 0 this is because we have large number of observations with personal loan as 0
+
+Now Let's Predict for Personal Loan on  Test data.
+
+Predicting the Probabilities and the prediction class for the test data. 
+```{r}
+LoanP.test$predict.class <- predict(ptree,LoanP.test, type="class")
+LoanP.test$predict.score <- predict(ptree,LoanP.test, type="prob")
+head(LoanP.test)
+
+MLmetrics::AUC(LoanP.test$predict.score[,2], 
+                LoanP.test$Personal.Loan)
+```
+Observation
+AUC is 0.9458001 which is good
+
+Now Let's compute the Gini
+```{r}
+library(ineq)
+ginicart = ineq(LoanP.test$predict.score[,2], type="Gini")
+ginicart
+
+```
+Observation - gini value 0.8278681
+
+
+AUC and KS computation
+```{r}
+library(ROCR)
+predc = prediction(LoanP.test$predict.score[,2], LoanP.test$Personal.Loan)
+perfc = performance(predc, "tpr", "fpr")
+plot(perfc)
+
+KScart = max(attr(perfc, 'y.values')[[1]]-attr(perfc, 'x.values')[[1]])
+auccart = performance(predc, 'auc');
+auccart = as.numeric(auccart@y.values)
+auccart
+KScart
+```
+observation 
+auc  0.9458001
+KS  0.8579619
+
+
+Print Model performance statistics
+```{r}
+with(LoanP.test, table(LoanP.test$Personal.Loan, LoanP.test$predict.class))
+auccart
+KScart
+ginicart
+
+```
+Observation
+Model Performance stats
+
+Confusion Matrix 
+      0    1
+  0 1116   8
+  1   17  109
+
+Above captures the confusion matrix results. 
+ Model predicted 1116 Negatives as Negatives and 8 wrong Negatives
+ Model predicted 109 Positives as Positives and 17 wrong positives
+ 
+Sensitivity = True Positive/Total positive = 109/126 = 86.50%
+specificity - True Negatives/Total Negatives = 1116/1124 = 99.28%
+Accuracy = True Positives + True Negatives/Total observations = 1116+109/1250 = 98%
+
+Model predicted 98% observations correctly. Model was able to predict large Negatives correctly as observations in Train dataset as larger Negative values i.e. 0
+
+CART model was able to predict large population correctly with an exception 25 observations where it predicted wrongly.
+
+AUC  - 0.9458001
+KS   - 0.8579619
+gini - 0.8278681
+
+#### Overall CART Model Performance is good. We will try next Random Forest and then compare two models
+
+#### Section 3/4 Applying Random Forest technique 
+we will use Loanrandom.train and Loanrandom.test datasets created in last step (CART). This is done as we would like same data to be fed to both Models for comparison.
+
+Build Random forest
+```{r}
+library(randomForest)
+RF = randomForest(as.factor(Loanrandom.train$Personal.Loan) ~ ., data = Loanrandom.train[,-1], 
+                   ntree=501, mtry = 4, nodesize =10, importance=TRUE)
+print(RF)
+plot(RF, main="")
+legend("topright", c("OOB", "0", "1"), text.col=1:6, lty=1:3, col=1:3)
+title(main="Error Rates Random Forest LOanrandom.train")
+```
+
+List the importance of the variables.Highlight both the rows together and run the code
+```{r}
+RF$err.rate
+impVar <- round(randomForest::importance(RF), 2)
+impVar[order(impVar[,3], decreasing=TRUE),]
+## Tuning Random Forest
+tRF <- tuneRF(x = Loanrandom.train[,-c(1,10)], 
+              y=as.factor(Loanrandom.train$Personal.Loan),
+              mtryStart = 4, 
+              ntreeTry=100, 
+              stepFactor = 1.5, 
+              improve = 0.0001, 
+              trace=TRUE, 
+              plot = TRUE,
+              doBest = TRUE,
+              nodesize = 10, 
+              importance=TRUE
+)
+
+#A plot for the mean decrease in accuracy levels
+varImpPlot(tRF)
+```
+
+Predicting the Probabilities and the prediction class for the development data
+```{r}
+Loanrandom.train$predict.class <- predict(tRF, Loanrandom.train, type="class")
+Loanrandom.train$predict.score <- predict(tRF, Loanrandom.train, type="prob")
+head(Loanrandom.train)
+class(Loanrandom.train$predict.score)
+library(MLmetrics)
+MLmetrics::AUC(Loanrandom.train$predict.score[,2], Loanrandom.train$Personal.Loan)
+```
+
+Predict for Test data
+```{r}
+## Predicting the Probabilities and the prediction class for the Holdout data. 
+##Would like to see how well the model is able to predict for the holdout data
+Loanrandom.test$predict.class <- predict(tRF, Loanrandom.test, type="class")
+Loanrandom.test$predict.score <- predict(tRF, Loanrandom.test, type="prob")
+head(Loanrandom.test)
+
+MLmetrics::AUC(Loanrandom.test$predict.score[,2], 
+               Loanrandom.test$Personal.Loan)
+```
+RF Model Performance metrics
+Gini computation
+```{r}
+library(ineq)
+rfgini = ineq(Loanrandom.test$predict.score[,2], type="Gini")
+rfgini
+```
+gini 0.8914906
+
+AUC computation
+```{r}
+library(ROCR)
+pred = prediction(Loanrandom.test$predict.score[,2], Loanrandom.test$Personal.Loan)
+perf = performance(pred, "tpr", "fpr")
+plot(perf)
+rfKS = max(attr(perf, 'y.values')[[1]]-attr(perf, 'x.values')[[1]])
+rfauc = performance(pred, 'auc');
+rfauc = as.numeric(rfauc@y.values)
+rfauc
+rfKS
+```
+observation 
+auc 0.9964236
+KS 0.9387533
+
+
+print Model performance statistics
+```{r}
+with(Loanrandom.test, table(Loanrandom.test$Personal.Loan, Loanrandom.test$predict.class))
+rfauc
+rfKS
+rfgini
+```
+
+Random Forest Model Performance Metrics
+
+Confusion Matrix    
+  
+      0    1
+  0 1118    6
+  1   11  115
+
+Above shows RF model predicted majority right with an exception of 17 observation where prediction was wrong
+
+Above captures the confusion matrix results. 
+ Model predicted 1118 Negatives as Negatives and 6 wrong Negatives
+ Model predicted 115 Positives as Positives and 11 wrong positives
+ 
+Sensitivity = True Positive/Total positive = 115/126 = 91.26%
+specificity - True Negatives/Total Negatives = 1118/1124 = 99.46%
+Accuracy = True Positives + True Negatives/Total observations = 1118+115/1250 = 98.64%
+
+Model predicted 98.64% observations correctly. Model was able to predict large Negatives correctly as observations in Train dataset as larger Negative values i.e. 0
+
+auc - 0.9964236
+KS  - 0.9387533
+gini- 0.8914906
+
+Again over RF model is better then CART given that it predicted less wrongs. Now let's try Random Forest with Cross Validation Technique and see if there is any further improvements we could suggest.
+
+## Random Forest Cross-Validation Model using Caret Package
+
+We will use Loancv.train and Loancv.test datsets created in CART step. Would like the model to use same data used in CART and plain RF model.
+```{r}
+library(caret)
+library(lattice)
+library(ggplot2)
+#The caret package requires its target variables to be a factor. So converting targets to Y/N
+Loancv.train$Target_YN = ifelse(Loancv.train$Personal.Loan == 1, "Y", "N")
+control <- trainControl(method="cv", number=10, 
+                        classProbs = TRUE, 
+                        summaryFunction = twoClassSummary)
+set.seed(1212)
+rf_fit <- train(Target_YN ~ ., 
+                data=Loancv.train[,-c(1, 10)], 
+                method="rf", metric="ROC", 
+                tuneGrid=expand.grid(.mtry=4),
+                ntrees = 101,
+                nodesize = 10,
+                trControl=control)
+
+#Do look at the ROC result and see the if it is close to results of the train data as well.
+print(rf_fit)
+```
+
+Observation
+ROC       Sens       Spec     
+  0.996732  0.9964663  0.8815079
+
+Testing Model Performance on Test dataset
+```{r}
+Loancv.test$predict.class <- predict.train(rf_fit, 
+                                            newdata = Loancv.test, 
+                                            type="raw")
+Loancv.test$predict.score <- predict.train(rf_fit, 
+                                            newdata = Loancv.test, 
+                                            type="prob")
+
+#Compare the ROC / AUC value for the Test data set and see if they are close.
+#This means the model is no longer overfitted and has some credibility for prediction.
+MLmetrics::AUC(Loancv.test$predict.score[,2], 
+               Loancv.test$Personal.Loan)
+```
+
+Observation
+AUC  0.9963107
+
+Gini computation
+```{r}
+library(ineq)
+rfcvgini = ineq(Loancv.test$predict.score[,2], type="Gini")
+rfcvgini
+
+```
+gini 0.8821768
+
+AUC and KS computation
+
+```{r}
+library(ROCR)
+pred = prediction(Loancv.test$predict.score[,2], Loancv.test$Personal.Loan)
+perf = performance(pred, "tpr", "fpr")
+plot(perf)
+rfcvKS = max(attr(perf, 'y.values')[[1]]-attr(perf, 'x.values')[[1]])
+rfcvauc = performance(pred, 'auc');
+rfcvauc = as.numeric(rfcvauc@y.values)
+rfcvauc
+rfcvKS
+```
+observation 
+auc 0.9963107
+KS 0.9281478
+
+print Model performance statistics
+```{r}
+with(Loancv.test, table(Loancv.test$Personal.Loan, Loancv.test$predict.class))
+rfcvauc
+rfcvKS
+rfcvgini
+
+```
+
+Random Forest Cross Validation Model performance Metrics
+
+Confusion Matrix
+
+      N    Y
+  0 1120    4
+  1   13  113
+
+Overall Model was able to predict large population with an exception of 17 observations where the prediction went wrong. 
+
+Above captures the confusion matrix results. 
+ Model predicted 1120 Negatives as Negatives and 4 wrong Negatives
+ Model predicted 1139 Positives as Positives and 13 wrong positives
+ 
+Sensitivity = True Positive/Total positive = 113/126 = 89.68%
+specificity - True Negatives/Total Negatives = 1120/1124 = 99.64%
+Accuracy = True Positives + True Negatives/Total observations = 1120+113/1250 = 98.64%
+
+Model predicted 98% observations correctly. Model was able to predict large Negatives correctly as observations in Train dataset as larger Negative values i.e. 0
+
+auc - 0.9963107
+KS  - 0.9281478
+gini -0.8821768
+
+
+As you can see Random forest with cross validation predicted same number.e. wrongs. The difference here is the Negative value predictions i.e 0 is far better compared to plain Random forest. Hence Random Forest Model is recommended for Thea Bank Dataset. 
+
+
